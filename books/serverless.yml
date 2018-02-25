@@ -1,0 +1,122 @@
+service: sless-cqrs-example-books
+
+plugins:
+  - serverless-offline-sns
+  - serverless-dynamodb-local
+  - serverless-offline
+
+custom:
+  dynamodb:
+    start:
+      migrate: true
+  serverless-offline-sns:
+    port: 4002
+    debug: true
+  serverless-offline:
+    babelOptions:
+      presets: ["env"]
+
+provider:
+  name: aws
+  stage: dev
+  region: eu-west-3
+  runtime: nodejs4.3
+  environment:
+    AWS_ACCOUNT_ID: '${ssm:accountId}'
+    EVENTS_BOOKS_TABLE: 'books-events-table-${self:provider.stage}'
+    STATE_BOOKS_TABLE: 'books-state-table-${self:provider.stage}'
+    STATE_COUNT_AUTHORS_TABLE: 'count-authors-state-table-${self:provider.stage}'
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": ["EventsBooksDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["StateBooksDynamoDBTable", "Arn" ] }
+        - { "Fn::GetAtt": ["StateCountAuthorsDynamoDBTable", "Arn" ] }
+        - "arn:aws:sns:eu-west-3:${ssm:accountId}:create-book"
+
+functions:
+  commandCreateBook:
+    handler: commands.createBook
+    events:
+      - http: 'POST /books'
+  queryCountAuthor:
+    handler: queries.countAuthors
+    events:
+      - http: 'GET /authors/count'
+  queryGetBooks:
+    handler: queries.getBooks
+    events:
+      - http: 'GET /books'
+  communicationSaveEventCreateBook:
+    handler: communications.saveEventCreateBook
+    events:
+      - sns:
+          topicName: create-book
+          displayName: "Book create events"
+  communicationSaveStateBook:
+    handler: communications.saveStateBook
+    events:
+      - sns:
+          topicName: create-book
+          displayName: "Book create events"
+  communicationSaveStateCountAuthor:
+    handler: communications.saveSetateCountAuthor
+    events:
+      - sns:
+          topicName: create-book
+          displayName: "Book create events"
+  
+resources:
+  Resources:
+    EventsBooksDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: '${self:provider.environment.EVENTS_BOOKS_TABLE}'
+        AttributeDefinitions:
+          -
+            AttributeName: id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    StateBooksDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: '${self:provider.environment.STATE_BOOKS_TABLE}'
+        AttributeDefinitions:
+          -
+            AttributeName: id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    StateCountAuthorsDynamoDBTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: '${self:provider.environment.STATE_COUNT_AUTHORS_TABLE}'
+        AttributeDefinitions:
+          -
+            AttributeName: author
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: author
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
