@@ -1,17 +1,17 @@
 'use strict';
 
 const uuid = require('uuid');
-const bus = require("../lib/bus").createEventBusClient();
+const bus = require("./lib/bus")();
 
 module.exports.createBook = (event, context, callback) => {
   const data = JSON.parse(event.body);
   if (typeof data.title !== 'string' || typeof data.author !== 'string') {
-    callbackError(400, 'Validation error', callback);
+    callback('Validation error');
     return;
   }
 
   let generatedId = uuid.v1();
-  const event = {
+  const createBookEvent = {
     type: 'create-book',
     timestamp: new Date().getTime(),
     id: generatedId,
@@ -22,19 +22,19 @@ module.exports.createBook = (event, context, callback) => {
     }
   };
   
-  bus.publish(event,
+  bus.publish(createBookEvent,
     msg => {
       callback(null, {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event.payload),
+        body: JSON.stringify(createBookEvent.payload)
       })
     },
     err => {
       callback(null, {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({"error": err}),
+        body: JSON.stringify({"error": err})
       })
     }
   );

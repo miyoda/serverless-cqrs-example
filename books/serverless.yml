@@ -12,20 +12,18 @@ custom:
   serverless-offline-sns:
     port: 4002
     debug: true
-  serverless-offline:
-    babelOptions:
-      presets: ["env"]
 
 provider:
   name: aws
   stage: dev
   region: eu-west-3
-  runtime: nodejs4.3
+  runtime: nodejs6.10
   environment:
     AWS_ACCOUNT_ID: '${ssm:accountId}'
     EVENTS_BOOKS_TABLE: 'books-events-table-${self:provider.stage}'
     STATE_BOOKS_TABLE: 'books-state-table-${self:provider.stage}'
     STATE_COUNT_AUTHORS_TABLE: 'count-authors-state-table-${self:provider.stage}'
+    SERVERLESS_REGION: eu-west-3
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -35,6 +33,7 @@ provider:
         - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
+        - "sns:*"
       Resource:
         - { "Fn::GetAtt": ["EventsBooksDynamoDBTable", "Arn" ] }
         - { "Fn::GetAtt": ["StateBooksDynamoDBTable", "Arn" ] }
@@ -67,12 +66,12 @@ functions:
           topicName: create-book
           displayName: "Book create events"
   communicationSaveStateCountAuthor:
-    handler: communications.saveSetateCountAuthor
+    handler: communications.saveStateCountAuthor
     events:
       - sns:
           topicName: create-book
           displayName: "Book create events"
-  
+
 resources:
   Resources:
     EventsBooksDynamoDBTable:
@@ -111,11 +110,11 @@ resources:
         TableName: '${self:provider.environment.STATE_COUNT_AUTHORS_TABLE}'
         AttributeDefinitions:
           -
-            AttributeName: author
+            AttributeName: id
             AttributeType: S
         KeySchema:
           -
-            AttributeName: author
+            AttributeName: id
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
